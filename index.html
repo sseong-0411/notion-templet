@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>인원 순환 배정</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #1a202c;
+      --muted: #718096;
+      --accent: #5c6bc0;
+      --accent-h: #3949ab;
+      --accent-l: #e8eaf6;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.04);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans KR', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 600px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .app { max-width: 1000px; margin: 0 auto; padding: 16px; }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* Settings Panel */
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .panel-toggle {
+      width: 100%; display: flex; align-items: center; justify-content: space-between;
+      padding: 11px 14px; background: none; border: none; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: var(--text); text-align: left;
+    }
+    .panel-toggle:hover { background: var(--bg); }
+    .panel-toggle .arrow { font-size: 10px; transition: transform 0.2s; }
+    .panel-toggle.open .arrow { transform: rotate(180deg); }
+    .panel-body { display: none; padding: 14px; border-top: 1px solid var(--border); }
+    .panel-body.open { display: block; }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 14px;
+    }
+    @media (max-width: 640px) { .settings-grid { grid-template-columns: 1fr; } }
+
+    label.field-label {
+      display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+    }
+    textarea.field-input {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 13px; font-family: inherit;
+      resize: vertical; min-height: 190px; color: var(--text);
+    }
+    textarea.field-input:focus {
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-l);
+    }
+    .field-hint { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+    .prog-groups-wrap {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 10px; margin-bottom: 14px;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      background: var(--accent); color: #fff; border: none;
+      padding: 9px 18px; border-radius: 6px; font-size: 13px;
+      font-weight: 600; cursor: pointer; transition: background 0.15s;
+    }
+    .btn-primary:hover { background: var(--accent-h); }
+    .btn-outline {
+      background: var(--card); color: var(--text);
+      border: 1px solid var(--border); padding: 7px 12px;
+      border-radius: 6px; font-size: 12px; font-weight: 500;
+      cursor: pointer; transition: all 0.15s; display: inline-flex;
+      align-items: center; gap: 5px;
+    }
+    .btn-outline:hover { background: var(--accent-l); border-color: var(--accent); }
+
+    /* Week Selector */
+    .week-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 14px;
+      margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .week-nav {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 5px; padding: 5px 10px; cursor: pointer;
+      font-size: 12px; transition: all 0.15s;
+    }
+    .week-nav:hover { background: var(--accent-l); border-color: var(--accent); }
+    .week-num-input {
+      width: 54px; text-align: center; padding: 5px 8px;
+      border: 1px solid var(--border); border-radius: 5px;
+      font-size: 15px; font-weight: 700; color: var(--accent);
+    }
+    .week-num-input:focus { outline: none; border-color: var(--accent); }
+    .week-badge {
+      margin-left: auto; font-size: 12px; color: var(--muted);
+    }
+    .week-badge strong { color: var(--accent); font-size: 14px; }
+
+    /* Tabs */
+    .tabs {
+      display: flex; gap: 3px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 4px; margin-bottom: 12px;
+    }
+    .tab {
+      flex: 1; padding: 7px 10px; background: none; border: none;
+      border-radius: 5px; font-size: 12px; font-weight: 500;
+      cursor: pointer; color: var(--muted); transition: all 0.15s;
+    }
+    .tab:hover { background: var(--bg); color: var(--text); }
+    .tab.active { background: var(--accent); color: #fff; font-weight: 700; }
+
+    /* Team Cards */
+    .teams-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+      gap: 14px;
+    }
+    .team-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+    }
+    .team-card-head {
+      padding: 11px 14px; background: var(--accent); color: #fff;
+    }
+    .team-card-head h3 { font-size: 14px; font-weight: 700; }
+    .team-card-head p { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th {
+      padding: 7px 12px; text-align: left; font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.5px;
+      color: var(--muted); background: var(--bg); border-bottom: 1px solid var(--border);
+    }
+    .data-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tr:hover td { background: var(--accent-l); }
+
+    /* Member View */
+    .member-select-bar { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; }
+    .select-field {
+      flex: 1; padding: 8px 10px; border: 1px solid var(--border);
+      border-radius: 6px; font-size: 13px; background: var(--card);
+      cursor: pointer; color: var(--text);
+    }
+    .select-field:focus { outline: none; border-color: var(--accent); }
+    .member-schedule-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow);
+    }
+    .member-schedule-head {
+      padding: 11px 14px; background: var(--accent); color: #fff; font-weight: 700; font-size: 14px;
+    }
+    .badge {
+      display: inline-block; padding: 2px 8px; border-radius: 20px;
+      font-size: 11px; font-weight: 700;
+    }
+    .badge-1 { background: #e3f2fd; color: #1565c0; }
+    .badge-2 { background: #f3e5f5; color: #7b1fa2; }
+    .badge-3 { background: #e8f5e9; color: #2e7d32; }
+    .badge-4 { background: #fff3e0; color: #e65100; }
+    .badge-5 { background: #fce4ec; color: #c62828; }
+    .row-current td { background: var(--accent-l) !important; font-weight: 700; }
+
+    /* Full Schedule */
+    .full-team-section { margin-bottom: 20px; }
+    .full-team-title {
+      font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 8px;
+    }
+    .scroll-x { overflow-x: auto; }
+    .full-table {
+      width: 100%; border-collapse: collapse;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; font-size: 12px;
+      min-width: 500px;
+    }
+    .full-table th {
+      padding: 7px 10px; text-align: left; font-weight: 700;
+      background: var(--accent); color: #fff; white-space: nowrap;
+      border-right: 1px solid rgba(255,255,255,0.15);
+    }
+    .full-table td {
+      padding: 6px 10px; border: 1px solid var(--border); white-space: nowrap;
+    }
+    .full-table tr:nth-child(even) td { background: var(--bg); }
+    .full-table .cycle-sep td { border-top: 2px solid var(--accent) !important; }
+
+    /* Toolbar */
+    .toolbar { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+
+    /* Alerts */
+    .alert { padding: 9px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
+    .alert-err { background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; }
+
+    /* Empty */
+    .empty {
+      text-align: center; padding: 50px 20px; color: var(--muted);
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+    .empty .icon { font-size: 36px; margin-bottom: 10px; }
+    .empty p { font-size: 13px; margin-top: 6px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>인원 순환 배정</h1>
+      <div class="header-sub">라틴 방진 방식 · 52주 자동 스케줄</div>
+    </div>
+  </div>
+
+  <!-- Settings Panel -->
+  <div class="panel">
+    <button class="panel-toggle" id="settingsToggle" onclick="toggleSettings()">
+      <span>⚙ 설정</span>
+      <span class="arrow">▼</span>
+    </button>
+    <div class="panel-body" id="settingsBody">
+      <div style="margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+        <div>
+          <label class="field-label">1주차 시작일</label>
+          <input type="date" class="week-num-input" id="startDateInput"
+            style="width:160px; font-size:13px; font-weight:500; color:var(--text); padding:6px 10px;">
+          <div class="field-hint" style="margin-top:4px;">설정하면 각 주차에 날짜(월/일)가 표시됩니다</div>
+        </div>
+      </div>
+      <div class="settings-grid">
+        <div>
+          <label class="field-label">인원 목록 (한 줄에 한 명)</label>
+          <textarea class="field-input" id="membersInput"
+            placeholder="홍길동&#10;김철수&#10;이영희&#10;박민준&#10;..."></textarea>
+          <div class="field-hint" id="memberHint"></div>
+        </div>
+        <div>
+          <label class="field-label">프로그램 그룹</label>
+          <div class="prog-groups-wrap" id="progGroupsWrap"></div>
+          <div class="field-hint">팀별로 12개 프로그램명을 입력하세요 (한 줄에 하나)</div>
+        </div>
+      </div>
+      <div class="alert alert-err" id="settingsErr" style="display:none;"></div>
+      <button class="btn-primary" onclick="applySettings()">✓ 적용하기</button>
+    </div>
+  </div>
+
+  <!-- Week Selector -->
+  <div class="week-bar">
+    <button class="week-nav" onclick="changeWeek(-1)">◀ 이전</button>
+    <input type="number" class="week-num-input" id="weekInput"
+      min="1" max="52" value="1"
+      onchange="setWeek(this.value)"
+      onkeydown="if(event.key==='Enter') setWeek(this.value)">
+    <span style="font-size:13px; color:var(--muted);">주차</span>
+    <button class="week-nav" onclick="changeWeek(1)">다음 ▶</button>
+    <div class="week-badge" id="weekBadge"></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" id="tab-week" onclick="switchTab('week')">📅 주차별 배정</button>
+    <button class="tab" id="tab-member" onclick="switchTab('member')">👤 인원별 조회</button>
+    <button class="tab" id="tab-full" onclick="switchTab('full')">📋 전체 52주</button>
+  </div>
+
+  <!-- Output -->
+  <div id="output"></div>
+
+</div>
+<script>
+// ─────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────
+const S = {
+  members: [],
+  programGroups: [],
+  week: 1,
+  tab: 'week',
+  selectedMember: '',
+  startDate: ''   // ISO string: 1주차 시작일 (e.g. "2025-01-06")
+};
+
+const TEAM_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+// ─────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────
+function init() {
+  loadStorage();
+  syncMembersTextarea();
+  syncProgGroupsUI();
+  updateWeekBadge();
+  render();
+
+  document.getElementById('membersInput').addEventListener('input', function () {
+    const n = parseLines(this.value).length;
+    const t = Math.max(1, Math.ceil(n / 12));
+    document.getElementById('memberHint').textContent =
+      n + '명 → ' + t + '팀 (팀당 최대 12명)';
+    ensureProgGroupInputs(t);
+  });
+}
+
+// ─────────────────────────────────────────────
+//  STORAGE
+// ─────────────────────────────────────────────
+function saveStorage() {
+  try { localStorage.setItem('prs_v1', JSON.stringify(S)); } catch (_) {}
+}
+function loadStorage() {
+  try {
+    const raw = localStorage.getItem('prs_v1');
+    if (raw) {
+      const d = JSON.parse(raw);
+      Object.assign(S, d);
+      return;
+    }
+  } catch (_) {}
+  // defaults
+  S.members = Array.from({ length: 12 }, (_, i) => '인원 ' + (i + 1));
+  S.programGroups = [
+    Array.from({ length: 12 }, (_, i) => 'A-' + (i + 1))
+  ];
+  S.startDate = '';
+}
+
+// ─────────────────────────────────────────────
+//  HELPERS
+// ─────────────────────────────────────────────
+function parseLines(txt) {
+  return txt.split('\n').map(s => s.trim()).filter(s => s.length > 0);
+}
+function esc(s) {
+  return String(s || '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+function teamName(i) { return TEAM_LETTERS[i] + '팀'; }
+
+function computeTeams() {
+  const t = [];
+  for (let i = 0; i < S.members.length; i += 12)
+    t.push(S.members.slice(i, i + 12));
+  return t.length ? t : [[]];
+}
+
+/**
+ * 라틴 방진 + 사이클 오프셋
+ * memberIdx : 팀 내 인덱스 (0-based)
+ * teamSize  : 팀 인원 수
+ * progGroup : 프로그램명 배열 (12개)
+ * week      : 1~52
+ */
+function getProgram(memberIdx, teamSize, progGroup, week) {
+  if (!progGroup || progGroup.length === 0) return '-';
+  const sz = Math.max(teamSize, 1);
+  const pg = progGroup.length;
+  const cycleIdx   = Math.floor((week - 1) / 12);   // 0-based cycle
+  const weekInCyc  = (week - 1) % 12;               // 0-based week in cycle
+  const offset     = (cycleIdx * 3) % sz;
+  const progIdx    = (memberIdx + offset + weekInCyc) % pg;
+  return progGroup[progIdx] || '-';
+}
+
+function cycleInfo(week) {
+  return {
+    cycle: Math.floor((week - 1) / 12) + 1,
+    wic:   (week - 1) % 12 + 1
+  };
+}
+
+// 1주차 시작일로부터 week번째 주의 시작/종료 날짜 반환
+function weekDateRange(week) {
+  if (!S.startDate) return null;
+  const base = new Date(S.startDate);
+  if (isNaN(base.getTime())) return null;
+  const start = new Date(base);
+  start.setDate(base.getDate() + (week - 1) * 7);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  return { start, end };
+}
+
+function fmtDate(d) {
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+function fmtDateFull(d) {
+  return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0');
+}
+
+function weekLabel(week) {
+  const r = weekDateRange(week);
+  if (!r) return week + '주차';
+  return week + '주차 (' + fmtDate(r.start) + '~' + fmtDate(r.end) + ')';
+}
+
+// ─────────────────────────────────────────────
+//  SETTINGS UI
+// ─────────────────────────────────────────────
+function toggleSettings() {
+  document.getElementById('settingsBody').classList.toggle('open');
+  document.getElementById('settingsToggle').classList.toggle('open');
+}
+
+function syncMembersTextarea() {
+  document.getElementById('membersInput').value = S.members.join('\n');
+  const t = Math.max(1, Math.ceil(S.members.length / 12));
+  document.getElementById('memberHint').textContent =
+    S.members.length + '명 → ' + t + '팀 (팀당 최대 12명)';
+  if (S.startDate) document.getElementById('startDateInput').value = S.startDate;
+}
+
+function ensureProgGroupInputs(teamCount) {
+  const wrap = document.getElementById('progGroupsWrap');
+  const existing = wrap.querySelectorAll('.pg-block');
+
+  // Add missing
+  while (wrap.querySelectorAll('.pg-block').length < teamCount) {
+    const idx = wrap.querySelectorAll('.pg-block').length;
+    const tl = TEAM_LETTERS[idx];
+    const block = document.createElement('div');
+    block.className = 'pg-block';
+    block.innerHTML =
+      '<label class="field-label">' + teamName(idx) + ' 프로그램</label>' +
+      '<textarea class="field-input" data-team="' + idx + '"' +
+      ' style="min-height:160px; font-size:12px;"' +
+      ' placeholder="' + Array.from({ length: 12 }, (_, i) => tl + '-' + (i + 1)).join('&#10;') + '">' +
+      '</textarea>';
+    wrap.appendChild(block);
+    // Populate from state if available
+    if (S.programGroups[idx]) {
+      block.querySelector('textarea').value = S.programGroups[idx].join('\n');
+    }
+  }
+
+  // Remove excess
+  const all = wrap.querySelectorAll('.pg-block');
+  for (let i = all.length - 1; i >= teamCount; i--) all[i].remove();
+}
+
+function syncProgGroupsUI() {
+  const teams = computeTeams();
+  ensureProgGroupInputs(teams.length);
+}
+
+function applySettings() {
+  const err = document.getElementById('settingsErr');
+  const members = parseLines(document.getElementById('membersInput').value);
+
+  if (members.length === 0) {
+    err.textContent = '인원을 1명 이상 입력해주세요.';
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+
+  const teamCount = Math.max(1, Math.ceil(members.length / 12));
+  const programGroups = [];
+  const inputs = document.querySelectorAll('#progGroupsWrap .pg-block textarea');
+
+  for (let i = 0; i < teamCount; i++) {
+    const tl = TEAM_LETTERS[i];
+    if (inputs[i]) {
+      const progs = parseLines(inputs[i].value);
+      programGroups.push(
+        progs.length > 0 ? progs : Array.from({ length: 12 }, (_, j) => tl + '-' + (j + 1))
+      );
+    } else {
+      programGroups.push(Array.from({ length: 12 }, (_, j) => tl + '-' + (j + 1)));
+    }
+  }
+
+  S.members = members;
+  S.programGroups = programGroups;
+  S.selectedMember = '';
+  S.startDate = document.getElementById('startDateInput').value || '';
+  saveStorage();
+  syncProgGroupsUI();
+  render();
+
+  // Close panel
+  document.getElementById('settingsBody').classList.remove('open');
+  document.getElementById('settingsToggle').classList.remove('open');
+}
+
+// ─────────────────────────────────────────────
+//  WEEK NAV
+// ─────────────────────────────────────────────
+function changeWeek(d) { setWeek(S.week + d); }
+
+function setWeek(v) {
+  S.week = Math.min(52, Math.max(1, parseInt(v) || 1));
+  document.getElementById('weekInput').value = S.week;
+  updateWeekBadge();
+  saveStorage();
+  render();
+}
+
+function updateWeekBadge() {
+  const { cycle, wic } = cycleInfo(S.week);
+  const r = weekDateRange(S.week);
+  const dateStr = r ? ' &nbsp;<span style="color:var(--muted);font-size:11px;">' + fmtDate(r.start) + '~' + fmtDate(r.end) + '</span>' : '';
+  document.getElementById('weekBadge').innerHTML =
+    '<strong>' + cycle + '사이클</strong> ' + wic + '주차' + dateStr;
+}
+
+// ─────────────────────────────────────────────
+//  TABS
+// ─────────────────────────────────────────────
+function switchTab(t) {
+  S.tab = t;
+  ['week', 'member', 'full'].forEach(id => {
+    document.getElementById('tab-' + id).classList.toggle('active', id === t);
+  });
+  render();
+}
+
+// ─────────────────────────────────────────────
+//  RENDER DISPATCHER
+// ─────────────────────────────────────────────
+function render() {
+  const out = document.getElementById('output');
+  if (S.members.length === 0) {
+    out.innerHTML = '<div class="empty"><div class="icon">📋</div><p>설정 패널에서 인원을 입력하고 <strong>적용하기</strong>를 눌러주세요.</p></div>';
+    return;
+  }
+  if (S.tab === 'week')   renderWeek(out);
+  else if (S.tab === 'member') renderMember(out);
+  else renderFull(out);
+}
+
+// ─────────────────────────────────────────────
+//  WEEK VIEW
+// ─────────────────────────────────────────────
+function renderWeek(out) {
+  const teams = computeTeams();
+  const { cycle, wic } = cycleInfo(S.week);
+
+  let html = '<div class="toolbar">' +
+    '<button class="btn-outline" onclick="dlWeekCSV()">⬇ CSV 다운로드</button>' +
+    '</div>' +
+    '<div class="teams-grid">';
+
+  const wr = weekDateRange(S.week);
+  const dateRangeStr = wr ? ' · ' + fmtDate(wr.start) + ' ~ ' + fmtDate(wr.end) : '';
+
+  teams.forEach((team, ti) => {
+    const pg = S.programGroups[ti] || [];
+    const tn = teamName(ti);
+    html += '<div class="team-card">' +
+      '<div class="team-card-head">' +
+      '<h3>' + tn + ' — 프로그램 그룹' + (ti + 1) + '</h3>' +
+      '<p>' + team.length + '명 · ' + S.week + '주차 (' + cycle + '사이클 ' + wic + '주)' + dateRangeStr + '</p>' +
+      '</div>' +
+      '<table class="data-table">' +
+      '<thead><tr><th>인원</th><th>프로그램</th></tr></thead><tbody>';
+
+    team.forEach((m, mi) => {
+      html += '<tr><td>' + esc(m) + '</td><td>' + esc(getProgram(mi, team.length, pg, S.week)) + '</td></tr>';
+    });
+
+    html += '</tbody></table></div>';
+  });
+
+  html += '</div>';
+  out.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  MEMBER VIEW
+// ─────────────────────────────────────────────
+function renderMember(out) {
+  const opts = S.members.map(m =>
+    '<option value="' + esc(m) + '"' + (m === S.selectedMember ? ' selected' : '') + '>' + esc(m) + '</option>'
+  ).join('');
+
+  out.innerHTML =
+    '<div class="member-select-bar">' +
+    '<select class="select-field" id="memberSel" onchange="onMemberChange()">' +
+    '<option value="">-- 인원 선택 --</option>' + opts + '</select>' +
+    '</div>' +
+    '<div id="memberOut"></div>';
+
+  if (S.selectedMember) renderMemberSchedule();
+}
+
+function onMemberChange() {
+  S.selectedMember = document.getElementById('memberSel').value;
+  saveStorage();
+  renderMemberSchedule();
+}
+
+function renderMemberSchedule() {
+  const mout = document.getElementById('memberOut');
+  if (!mout) return;
+  const name = S.selectedMember;
+  if (!name) { mout.innerHTML = ''; return; }
+
+  const teams = computeTeams();
+  let ti = -1, mi = -1;
+  teams.forEach((team, t) => {
+    team.forEach((mem, m) => { if (mem === name) { ti = t; mi = m; } });
+  });
+
+  if (ti === -1) { mout.innerHTML = '<div class="alert alert-err">인원을 찾을 수 없습니다.</div>'; return; }
+
+  const team = teams[ti];
+  const pg = S.programGroups[ti] || [];
+
+  let html =
+    '<div class="member-schedule-card">' +
+    '<div class="member-schedule-head">' +
+    esc(name) + ' — ' + teamName(ti) + ' · 52주 전체 일정' +
+    '</div>' +
+    '<div style="overflow-x:auto;">' +
+    '<table class="data-table">' +
+    '<thead><tr><th>주차</th><th>날짜</th><th>사이클</th><th>사이클 내 주차</th><th>프로그램</th></tr></thead>' +
+    '<tbody>';
+
+  for (let w = 1; w <= 52; w++) {
+    const { cycle, wic } = cycleInfo(w);
+    const prog = getProgram(mi, team.length, pg, w);
+    const bc = 'badge badge-' + Math.min(cycle, 5);
+    const cur = w === S.week ? ' class="row-current"' : '';
+    const r = weekDateRange(w);
+    const dateCell = r ? fmtDate(r.start) + '~' + fmtDate(r.end) : '-';
+    html += '<tr' + cur + '>' +
+      '<td>' + w + '주차' + (w === S.week ? ' ◀' : '') + '</td>' +
+      '<td style="color:var(--muted);font-size:12px;">' + dateCell + '</td>' +
+      '<td><span class="' + bc + '">' + cycle + '사이클</span></td>' +
+      '<td>' + wic + '주차</td>' +
+      '<td>' + esc(prog) + '</td>' +
+      '</tr>';
+  }
+
+  html += '</tbody></table></div></div>';
+  mout.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  FULL 52-WEEK VIEW
+// ─────────────────────────────────────────────
+function renderFull(out) {
+  const teams = computeTeams();
+
+  let html = '<div class="toolbar">' +
+    '<button class="btn-outline" onclick="dlFullCSV()">⬇ 전체 CSV 다운로드</button>' +
+    '</div>';
+
+  teams.forEach((team, ti) => {
+    const pg = S.programGroups[ti] || [];
+    const tn = teamName(ti);
+
+    html += '<div class="full-team-section">' +
+      '<div class="full-team-title">' + tn + ' — 프로그램 그룹' + (ti + 1) + '</div>' +
+      '<div class="scroll-x">' +
+      '<table class="full-table">' +
+      '<thead><tr>' +
+      '<th>주차</th><th>날짜</th><th>사이클</th>' +
+      team.map(m => '<th>' + esc(m) + '</th>').join('') +
+      '</tr></thead><tbody>';
+
+    for (let w = 1; w <= 52; w++) {
+      const { cycle, wic } = cycleInfo(w);
+      const isCycSep = wic === 1 ? ' class="cycle-sep"' : '';
+      const isCur = w === S.week;
+      const rowSty = isCur ? ' style="background:var(--accent-l);font-weight:700;"' : '';
+      const r = weekDateRange(w);
+      const dateCell = r ? fmtDate(r.start) + '~' + fmtDate(r.end) : '-';
+
+      html += '<tr' + isCycSep + rowSty + '>' +
+        '<td>' + w + '주' + (isCur ? ' ◀' : '') + '</td>' +
+        '<td style="color:var(--muted);">' + dateCell + '</td>' +
+        '<td>' + cycle + '-' + wic + '</td>' +
+        team.map((_, m) => '<td>' + esc(getProgram(m, team.length, pg, w)) + '</td>').join('') +
+        '</tr>';
+    }
+
+    html += '</tbody></table></div></div>';
+  });
+
+  out.innerHTML = html;
+}
+
+// ─────────────────────────────────────────────
+//  CSV EXPORT
+// ─────────────────────────────────────────────
+function dlWeekCSV() {
+  const teams = computeTeams();
+  const r = weekDateRange(S.week);
+  const dateStr = r ? fmtDateFull(r.start) + '~' + fmtDateFull(r.end) : '';
+  const rows = ['주차,날짜,팀,인원,프로그램'];
+  teams.forEach((team, ti) => {
+    const pg = S.programGroups[ti] || [];
+    const tn = teamName(ti);
+    team.forEach((m, mi) => {
+      const prog = getProgram(mi, team.length, pg, S.week);
+      rows.push([S.week, '"' + dateStr + '"', tn, '"' + m + '"', '"' + prog + '"'].join(','));
+    });
+  });
+  dlFile('배정표_' + S.week + '주차.csv', '\uFEFF' + rows.join('\r\n'));
+}
+
+function dlFullCSV() {
+  const teams = computeTeams();
+  const rows = ['주차,날짜,사이클,사이클내주차,팀,인원,프로그램'];
+  for (let w = 1; w <= 52; w++) {
+    const { cycle, wic } = cycleInfo(w);
+    const r = weekDateRange(w);
+    const dateStr = r ? fmtDateFull(r.start) + '~' + fmtDateFull(r.end) : '';
+    teams.forEach((team, ti) => {
+      const pg = S.programGroups[ti] || [];
+      const tn = teamName(ti);
+      team.forEach((m, mi) => {
+        const prog = getProgram(mi, team.length, pg, w);
+        rows.push([w, '"' + dateStr + '"', cycle, wic, tn, '"' + m + '"', '"' + prog + '"'].join(','));
+      });
+    });
+  }
+  dlFile('전체_배정표_52주.csv', '\uFEFF' + rows.join('\r\n'));
+}
+
+function dlFile(name, content) {
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(content);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ─────────────────────────────────────────────
+//  START
+// ─────────────────────────────────────────────
+init();
+</script>
+</body>
+</html>
