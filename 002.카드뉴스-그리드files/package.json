@@ -1,0 +1,16 @@
+{
+  "name": "notion-gallery-widget",
+  "version": "1.0.0",
+  "description": "노션 DB 기반 갤러리 위젯 (프록시 서버 포함)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "@notionhq/client": "^2.2.15",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.0"
+  }
+}

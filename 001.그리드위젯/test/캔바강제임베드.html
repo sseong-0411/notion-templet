@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>노션 갤러리 위젯 - 카루셀 & 캔바</title>
+    <style>
+        /* 전체 갤러리 레이아웃 */
+        .gallery-container { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); 
+            gap: 20px; 
+            padding: 20px; 
+        }
+        
+        /* 개별 카드 스타일 */
+        .card { 
+            border: 1px solid #ddd; 
+            border-radius: 8px; 
+            overflow: hidden; 
+            font-family: sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        
+        /* --- 카루셀 관련 CSS --- */
+        .carousel-wrapper { 
+            position: relative; 
+            width: 100%; 
+            height: 250px; 
+            background-color: #f0f0f0; /* 여백이 생길 때 보일 배경색 */
+        }
+        
+        .carousel { 
+            display: flex; 
+            overflow-x: auto; 
+            scroll-snap-type: x mandatory; 
+            scrollbar-width: none; /* 파이어폭스 스크롤바 숨김 */
+            height: 100%; 
+            width: 100%; 
+        }
+        .carousel::-webkit-scrollbar { display: none; /* 크롬/사파리 스크롤바 숨김 */ }
+        
+        .carousel-item { 
+            flex: 0 0 100%; 
+            scroll-snap-align: center; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            padding: 10px; /* 이미지 주변 여유 공간 */
+            box-sizing: border-box;
+        }
+        
+        /* 3. 원본 비율 유지 (contain) */
+        .carousel-item img { 
+            max-width: 100%; 
+            max-height: 100%; 
+            object-fit: contain; 
+        }
+        
+        /* 2. 좌우 화살표 버튼 */
+        .carousel-btn { 
+            position: absolute; 
+            top: 50%; 
+            transform: translateY(-50%); 
+            background: rgba(0,0,0,0.4); 
+            color: white; 
+            border: none; 
+            border-radius: 50%; 
+            width: 32px; 
+            height: 32px; 
+            cursor: pointer; 
+            z-index: 10; 
+            font-size: 16px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+        }
+        .carousel-btn:hover { background: rgba(0,0,0,0.8); }
+        .carousel-btn.left { left: 8px; }
+        .carousel-btn.right { right: 8px; }
+        
+        /* --- 캔바 iframe 컨테이너 --- */
+        .canva-container { height: 250px; width: 100%; background-color: #f9f9f9; }
+        .canva-container iframe { width: 100%; height: 100%; border: none; }
+        
+        /* 텍스트 영역 */
+        .card-content { padding: 16px; background: #fff; }
+        .card-title { font-size: 16px; font-weight: bold; margin: 0; }
+    </style>
+</head>
+<body>
+
+<div id="gallery" class="gallery-container"></div>
+
+<script>
+// 가상의 노션 응답 데이터
+const mockNotionData = [
+    {
+        id: "1",
+        title: "비율이 다른 이미지 카루셀 테스트",
+        type: "image",
+        images: [
+            "https://picsum.photos/300/600?random=1", // 세로로 긴 이미지
+            "https://picsum.photos/600/300?random=2", // 가로로 긴 이미지
+            "https://picsum.photos/400/400?random=3"  // 정사각형 이미지
+        ]
+    },
+    {
+        id: "2",
+        title: "캔바 강제 임베드 테스트",
+        type: "canva",
+        canvaUrl: "https://www.canva.com/design/DAF_example/view" // 일반 공유 링크
+    }
+];
+
+// 1. 캔바 URL 강제 변환 로직
+function forceCanvaEmbedUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    // 이미 embed 파라미터가 있다면 원본 유지
+    if (url.includes('?embed') || url.includes('&embed')) return url;
+    
+    // 물음표가 이미 있으면 &로, 없으면 ?로 embed 파라미터 강제 추가
+    const separator = url.includes('?') ? '&' : '?';
+    return url + separator + 'embed';
+}
+
+// 화살표 클릭 시 스크롤을 이동시키는 함수
+window.scrollCarousel = function(button, direction) {
+    const wrapper = button.parentElement;
+    const carousel = wrapper.querySelector('.carousel');
+    const scrollAmount = carousel.clientWidth; // 한 칸(카드 너비)만큼 이동
+    carousel.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+};
+
+// 화면에 카드를 그리는 함수
+function renderCards(items) {
+    const container = document.getElementById('gallery');
+    container.innerHTML = '';
+
+    items.forEach(item => {
+        const card = document.createElement('div');
+        card.className = 'card';
+
+        let mediaHtml = '';
+
+        if (item.type === 'image' && item.images && item.images.length > 0) {
+            // 카루셀 아이템 생성
+            const imagesHtml = item.images.map(imgUrl => 
+                `<div class="carousel-item"><img src="${imgUrl}" alt="Carousel Image" loading="lazy"></div>`
+            ).join('');
+            
+            // 카루셀 래퍼 및 좌우 화살표 버튼 포함
+            mediaHtml = `
+                <div class="carousel-wrapper">
+                    <button class="carousel-btn left" onclick="scrollCarousel(this, -1)">&#10094;</button>
+                    <div class="carousel">${imagesHtml}</div>
+                    <button class="carousel-btn right" onclick="scrollCarousel(this, 1)">&#10095;</button>
+                </div>
+            `;
+        } 
+        else if (item.type === 'canva' && item.canvaUrl) {
+            // 캔바 임베드 변환 및 적용
+            const embedUrl = forceCanvaEmbedUrl(item.canvaUrl);
+            mediaHtml = `
+                <div class="canva-container">
+                    <iframe src="${embedUrl}" allowfullscreen="allowfullscreen" allow="fullscreen"></iframe>
+                </div>`;
+        }
+
+        card.innerHTML = `
+            ${mediaHtml}
+            <div class="card-content">
+                <div class="card-title">${item.title}</div>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+// 초기 실행
+renderCards(mockNotionData);
+</script>
+</body>
+</html>
