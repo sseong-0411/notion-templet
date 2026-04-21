@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>IG Grid Preview</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#F7F6F2;color:#1C1C1A;min-height:100vh;}
+body.dark{background:#1a1a18;color:#e0dfd8;}
+
+/* ── SETUP ── */
+#setup{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.sc{background:#fff;border-radius:16px;padding:36px 32px;max-width:440px;width:100%;border:1px solid #e8e6e0;}
+body.dark .sc{background:#242422;border-color:#363634;}
+.sc h2{font-size:20px;font-weight:500;margin-bottom:4px;}
+.sc p{font-size:13px;color:#1E7A46;line-height:1.6;margin-bottom:28px;}
+.field{margin-bottom:16px;}
+.field label{display:block;font-size:12px;font-weight:500;margin-bottom:5px;}
+.field input{width:100%;padding:10px 12px;border-radius:8px;border:1px solid #e8e6e0;background:#F7F6F2;font-size:13px;font-family:inherit;outline:none;color:#1C1C1A;}
+body.dark .field input{background:#1a1a18;border-color:#363634;color:#e0dfd8;}
+.btn-primary{width:100%;background:#1E7A46;color:#F0FAF4;border:none;border-radius:8px;padding:12px;font-size:14px;font-weight:500;cursor:pointer;}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+.hint{margin-top:18px;background:#F0FAF4;border-radius:8px;padding:12px 14px;font-size:11px;color:#1E7A46;line-height:1.9;}
+body.dark .hint{background:#2a2a28;color:#88CFA4;}
+.err-box{background:#FCEBEB;border:1px solid #F09595;border-radius:8px;padding:10px 14px;color:#A32D2D;font-size:12px;margin-bottom:14px;line-height:1.5;display:none;}
+
+/* ── APP ── */
+#app{display:none;}
+.topbar{background:#fff;border-bottom:1px solid #e8e6e0;padding:12px 18px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;}
+body.dark .topbar{background:#242422;border-color:#363634;}
+.tl{display:flex;align-items:center;gap:8px;}
+.ttitle{font-weight:500;font-size:14px;}
+.tcount{font-size:11px;color:#1E7A46;}
+body.dark .tcount{color:#88CFA4;}
+.tr{display:flex;gap:6px;align-items:center;}
+.save-msg{font-size:11px;font-weight:500;color:#1E7A46;}
+body.dark .save-msg{color:#88CFA4;}
+.btn-save{background:#1E7A46;color:#F0FAF4;border:none;border-radius:6px;padding:5px 12px;font-size:11px;font-weight:500;cursor:pointer;}
+.btn-save:disabled{background:#88CFA4;cursor:not-allowed;}
+.btn-icon{background:transparent;border:1px solid #e8e6e0;border-radius:6px;padding:5px 9px;font-size:13px;cursor:pointer;color:#1E7A46;}
+body.dark .btn-icon{border-color:#363634;color:#88CFA4;}
+
+.legend{padding:10px 18px 4px;display:flex;gap:12px;overflow-x:auto;align-items:center;flex-wrap:wrap;}
+.li{display:flex;align-items:center;gap:3px;font-size:11px;white-space:nowrap;}
+.dot{width:7px;height:7px;border-radius:50%;display:inline-block;flex-shrink:0;}
+.filters{padding:8px 18px 6px;display:flex;gap:6px;overflow-x:auto;}
+.fbtn{border-radius:20px;padding:5px 13px;font-size:12px;cursor:pointer;white-space:nowrap;border:1px solid #e8e6e0;background:#fff;color:#1C1C1A;}
+body.dark .fbtn{border-color:#363634;background:#242422;color:#e0dfd8;}
+.fbtn.active{background:#1E7A46;color:#F0FAF4;border-color:#1E7A46;font-weight:500;}
+.drag-hint{padding:4px 18px 10px;font-size:11px;color:#1E7A46;opacity:0.65;}
+body.dark .drag-hint{color:#88CFA4;}
+
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:0 18px;}
+.cell{position:relative;aspect-ratio:1/1;overflow:hidden;border-radius:3px;cursor:grab;user-select:none;}
+.cell:active{cursor:grabbing;}
+.cell.dragging{opacity:0.35;outline:2px dashed #1E7A46;}
+.cell.over{outline:2px solid #3DA86A;}
+.cell-ph{width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;}
+.cell img{width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;}
+.sdot{position:absolute;top:5px;right:5px;width:8px;height:8px;border-radius:50%;border:1.5px solid rgba(255,255,255,.85);box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.obadge{position:absolute;bottom:5px;left:5px;background:rgba(7,48,28,.72);color:#C3E8D0;font-size:9px;border-radius:4px;padding:1px 5px;}
+.dlabel{position:absolute;top:5px;left:5px;background:rgba(7,48,28,.65);color:#C3E8D0;font-size:9px;border-radius:4px;padding:1px 5px;display:none;}
+.cell:hover .dlabel{display:block;}
+.hover-ov{position:absolute;inset:0;background:rgba(7,48,28,.82);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 8px;text-align:center;gap:4px;opacity:0;transition:opacity .15s;pointer-events:none;}
+.cell:hover .hover-ov{opacity:1;}
+.cell.dragging .hover-ov{opacity:0;}
+.ht{color:#F0FAF4;font-size:11px;font-weight:500;line-height:1.35;}
+.hd{color:#88CFA4;font-size:10px;}
+.htype{background:rgba(255,255,255,.12);border-radius:10px;padding:1px 8px;color:#C3E8D0;font-size:9px;}
+
+.empty{text-align:center;padding:60px;font-size:13px;color:#88CFA4;}
+.loading-msg{text-align:center;padding:60px;font-size:14px;color:#1E7A46;}
+body.dark .loading-msg{color:#88CFA4;}
+.err-inline{margin:0 18px 12px;background:#FCEBEB;border:1px solid #F09595;border-radius:8px;padding:10px 14px;color:#A32D2D;font-size:12px;display:none;}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;z-index:200;padding:24px;}
+.modal-bg.open{display:flex;}
+.modal-card{background:#fff;border-radius:16px;max-width:420px;width:100%;overflow:hidden;border:1px solid #e8e6e0;}
+body.dark .modal-card{background:#2a2a28;border-color:#3a3a38;}
+.mthumb{aspect-ratio:1/1;display:flex;align-items:center;justify-content:center;font-size:48px;overflow:hidden;}
+.mthumb img{width:100%;height:100%;object-fit:cover;}
+.mbody{padding:18px 20px 22px;}
+.mtrow{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;}
+.mtitle{font-weight:500;font-size:15px;flex:1;padding-right:10px;color:inherit;}
+.mclose{background:none;border:none;font-size:20px;cursor:pointer;color:#1E7A46;line-height:1;}
+body.dark .mclose{color:#88CFA4;}
+.badges{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;}
+.badge{border-radius:12px;padding:2px 8px;font-size:11px;font-weight:500;}
+.mdate{font-size:12px;color:#1E7A46;margin-bottom:8px;}
+body.dark .mdate{color:#88CFA4;}
+.mcap{font-size:13px;line-height:1.65;margin-bottom:10px;}
+.mlikes{font-size:12px;color:#1E7A46;margin-bottom:10px;}
+body.dark .mlikes{color:#88CFA4;}
+.mlink{display:inline-block;font-size:12px;color:#1E7A46;text-decoration:none;border-bottom:1px solid rgba(30,122,70,.4);}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="sc">
+    <div style="font-size:28px;margin-bottom:6px">📷</div>
+    <h2>IG Grid Preview</h2>
+    <p>노션 게시물 DB를 연결해 그리드를 확인하고<br>드래그로 순서를 바꾼 뒤 노션에 저장하세요</p>
+    <div class="err-box" id="serr"></div>
+    <div class="field">
+      <label>Notion Integration Token</label>
+      <input type="password" id="itoken" placeholder="secret_xxxxxxxxxxxxxxxxxxxx"/>
+    </div>
+    <div class="field">
+      <label>Database ID</label>
+      <input type="text" id="idb" placeholder="4ac2bfac-7925-4c11-9699-09a9ab418dba"/>
+    </div>
+    <button class="btn-primary" id="btnconn">그리드 시작하기</button>
+    <div class="hint">
+      <strong>설정 방법</strong><br>
+      1. notion.so/my-integrations → New integration 생성<br>
+      2. 권한: Read content + Update content 체크<br>
+      3. 게시물 DB → ··· → Connections → 인테그레이션 추가<br>
+      4. 위에 토큰과 DB ID 입력 후 시작
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <div class="tl">
+      <span>📷</span>
+      <span class="ttitle">IG Grid Preview</span>
+      <span class="tcount" id="tcount"></span>
+    </div>
+    <div class="tr">
+      <span class="save-msg" id="savemsg"></span>
+      <button class="btn-save" id="btnsave">순서 저장</button>
+      <button class="btn-icon" id="btnrefresh" title="새로고침">↺</button>
+      <button class="btn-icon" id="btndark" title="다크모드">☽</button>
+      <button class="btn-icon" id="btnsettings" title="설정">⚙</button>
+    </div>
+  </div>
+  <div class="legend" id="legend"></div>
+  <div class="filters" id="filters"></div>
+  <div class="drag-hint">⠿ 카드를 드래그해 순서 변경 → "순서 저장" 클릭 시 노션 DB에 반영</div>
+  <div class="err-inline" id="aerr"></div>
+  <div class="loading-msg" id="loadmsg" style="display:none">불러오는 중...</div>
+  <div class="empty" id="emptymsg" style="display:none">게시물이 없어요</div>
+  <div class="grid" id="grid"></div>
+</div>
+
+<!-- MODAL -->
+<div class="modal-bg" id="modal">
+  <div class="modal-card">
+    <div class="mthumb" id="mthumb"></div>
+    <div class="mbody">
+      <div class="mtrow">
+        <div class="mtitle" id="mtitle"></div>
+        <button class="mclose" id="mclose">×</button>
+      </div>
+      <div class="badges" id="mbadges"></div>
+      <div class="mdate" id="mdate"></div>
+      <div class="mcap" id="mcap"></div>
+      <div class="mlikes" id="mlikes"></div>
+      <a class="mlink" id="mlink" target="_blank" rel="noreferrer"></a>
+    </div>
+  </div>
+</div>
+
+<script>
+const CORS   = 'https://corsproxy.io/?';
+const NOTION = 'https://api.notion.com/v1';
+
+const SC = {
+  '초안':    '#888780',
+  '디자인 중':'#378ADD',
+  '검토':    '#BA7517',
+  '예약됨':  '#E8593C',
+  '게시완료': '#1E7A46',
+  '보관':    '#5F5E5A',
+};
+const TM = {
+  '피드 1:1':{ bg:'#C3E8D0', ac:'#1E7A46', ic:'◻' },
+  '피드 4:5':{ bg:'#B5D4F4', ac:'#185FA5', ic:'▯' },
+  '스토리':  { bg:'#CECBF6', ac:'#534AB7', ic:'▮' },
+  '릴스':   { bg:'#F4C0D1', ac:'#993556', ic:'▶' },
+  '':       { bg:'#F0FAF4', ac:'#88CFA4', ic:'◻' },
+};
+
+let TOKEN='', DBID='';
+let allPosts=[], shownPosts=[];
+let curFilter='전체';
+let dark=false;
+let dragIdx=null, overIdx=null;
+
+async function notionReq(method, path, body){
+  const url = CORS + encodeURIComponent(NOTION + path);
+  const r = await fetch(url,{
+    method,
+    headers:{ Authorization:'Bearer '+TOKEN, 'Notion-Version':'2022-06-28', 'Content-Type':'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.message||'HTTP '+r.status); }
+  return r.json();
+}
+
+function mapPage(p){
+  const pr=p.properties;
+  return {
+    id:            p.id,
+    title:         pr['게시물 제목']?.title?.[0]?.plain_text || '제목 없음',
+    status:        pr['게시 상태']?.select?.name   || '',
+    type:          pr['게시 유형']?.select?.name   || '',
+    sdate:         pr['게시 예정일']?.date?.start  || '',
+    adate:         pr['실제 게시일']?.date?.start  || '',
+    figma:         pr['피그마 링크']?.url           || '',
+    likes:         pr['좋아요 수']?.number ?? null,
+    caption:       pr['캡션']?.rich_text?.[0]?.plain_text || '',
+    order:         pr['순서']?.number ?? null,
+  };
+}
+
+async function fetchPosts(){
+  show('loadmsg'); hide('emptymsg'); hide('aerr'); clearGrid();
+  try{
+    const cleanDb = DBID.replace(/-/g,'');
+    const data = await notionReq('POST','/databases/'+cleanDb+'/query',{
+      page_size:60,
+      sorts:[{property:'순서',direction:'ascending'},{property:'게시 예정일',direction:'ascending'}]
+    });
+    allPosts = data.results.map(mapPage);
+    hide('loadmsg');
+    buildFilters();
+    applyFilter();
+  }catch(e){
+    hide('loadmsg');
+    showErr('aerr', e.message);
+  }
+}
+
+async function saveOrder(){
+  const btn=g('btnsave');
+  btn.disabled=true; btn.textContent='저장 중...';
+  hide('aerr');
+  try{
+    await Promise.all(shownPosts.map((p,i)=>
+      notionReq('PATCH','/pages/'+p.id,{ properties:{ '순서':{ number:i+1 } } })
+    ));
+    allPosts = allPosts.map(p=>{
+      const idx = shownPosts.findIndex(s=>s.id===p.id);
+      return idx>=0 ? {...p, order:idx+1} : p;
+    });
+    const sm=g('savemsg'); sm.textContent='✓ 노션에 저장됐어요';
+    setTimeout(()=>{ sm.textContent=''; },3000);
+  }catch(e){ showErr('aerr','저장 실패: '+e.message); }
+  finally{ btn.disabled=false; btn.textContent='순서 저장'; }
+}
+
+function buildFilters(){
+  const statuses=['전체',...new Set(allPosts.map(p=>p.status).filter(Boolean))];
+  const f=g('filters'); f.innerHTML='';
+  statuses.forEach(s=>{
+    const b=document.createElement('button');
+    b.className='fbtn'+(s===curFilter?' active':'');
+    b.textContent=s;
+    b.onclick=()=>{ curFilter=s; buildFilters(); applyFilter(); };
+    f.appendChild(b);
+  });
+
+  const lg=g('legend'); lg.innerHTML='';
+  Object.entries(SC).forEach(([k,v])=>{
+    const el=document.createElement('span');
+    el.className='li';
+    el.innerHTML=`<span class="dot" style="background:${v}"></span>${k}`;
+    lg.appendChild(el);
+  });
+}
+
+function applyFilter(){
+  shownPosts = curFilter==='전체' ? [...allPosts] : allPosts.filter(p=>p.status===curFilter);
+  g('tcount').textContent=shownPosts.length+'/'+allPosts.length;
+  if(shownPosts.length===0){ show('emptymsg'); clearGrid(); return; }
+  hide('emptymsg'); renderGrid();
+}
+
+function clearGrid(){ g('grid').innerHTML=''; }
+
+function renderGrid(){
+  const grid=g('grid'); grid.innerHTML='';
+  shownPosts.forEach((post,i)=>{
+    const cell=document.createElement('div');
+    cell.className='cell';
+    cell.dataset.idx=i;
+
+    const meta=TM[post.type]||TM[''];
+    const isImg=post.figma&&/\.(jpg|jpeg|png|gif|webp)/i.test(post.figma);
+
+    if(isImg){
+      const img=document.createElement('img');
+      img.src=post.figma; img.alt=post.title;
+      img.onerror=()=>img.remove();
+      cell.appendChild(img);
+    } else {
+      const ph=document.createElement('div');
+      ph.className='cell-ph';
+      ph.style.background=meta.bg;
+      ph.innerHTML=`<span style="font-size:22px;color:${meta.ac}">${meta.ic}</span><span style="font-size:9px;color:${meta.ac};opacity:.7">${post.type||'게시물'}</span>`;
+      cell.appendChild(ph);
+    }
+
+    if(post.status){
+      const sd=document.createElement('div');
+      sd.className='sdot'; sd.style.background=SC[post.status]||'#aaa';
+      cell.appendChild(sd);
+    }
+
+    if(post.order!=null){
+      const ob=document.createElement('div');
+      ob.className='obadge'; ob.textContent='#'+post.order;
+      cell.appendChild(ob);
+    }
+
+    const dl=document.createElement('div');
+    dl.className='dlabel'; dl.textContent='⠿ 드래그';
+    cell.appendChild(dl);
+
+    const hov=document.createElement('div');
+    hov.className='hover-ov';
+    hov.innerHTML=`<span class="ht">${post.title}</span>${(post.adate||post.sdate)?`<span class="hd">${post.adate||post.sdate}</span>`:''}${post.type?`<span class="htype">${post.type}</span>`:''}`;
+    cell.appendChild(hov);
+
+    // drag events
+    cell.draggable=true;
+    cell.addEventListener('dragstart',e=>{ dragIdx=i; cell.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; });
+    cell.addEventListener('dragend',  ()=>{ cell.classList.remove('dragging'); finishDrag(); });
+    cell.addEventListener('dragover', e=>{ e.preventDefault(); e.dataTransfer.dropEffect='move'; if(overIdx!==i){ if(overIdx!==null){ const ov=grid.querySelector('.over'); if(ov) ov.classList.remove('over'); } overIdx=i; cell.classList.add('over'); } });
+    cell.addEventListener('dragleave',()=>{ cell.classList.remove('over'); });
+    cell.addEventListener('drop',     e=>{ e.preventDefault(); overIdx=i; });
+
+    cell.addEventListener('click',()=>openModal(post));
+    grid.appendChild(cell);
+  });
+}
+
+function finishDrag(){
+  const grid=g('grid');
+  grid.querySelectorAll('.over').forEach(c=>c.classList.remove('over'));
+  if(dragIdx===null||overIdx===null||dragIdx===overIdx){ dragIdx=null; overIdx=null; return; }
+  const arr=[...shownPosts];
+  const [moved]=arr.splice(dragIdx,1);
+  arr.splice(overIdx,0,moved);
+  shownPosts=arr.map((p,i)=>({...p,order:i+1}));
+  dragIdx=null; overIdx=null;
+  g('tcount').textContent=shownPosts.length+'/'+allPosts.length;
+  renderGrid();
+}
+
+function openModal(post){
+  const meta=TM[post.type]||TM[''];
+  const isImg=post.figma&&/\.(jpg|jpeg|png|gif|webp)/i.test(post.figma);
+  const mth=g('mthumb');
+  mth.style.background=meta.bg;
+  mth.style.color=meta.ac;
+  mth.innerHTML=isImg?`<img src="${post.figma}" alt="">`:`<span>${meta.ic}</span>`;
+  g('mtitle').textContent=post.title;
+
+  const mb=g('mbadges'); mb.innerHTML='';
+  if(post.status){
+    const c=SC[post.status]||'#888';
+    const b=document.createElement('span');
+    b.className='badge';
+    b.style.cssText=`background:${c}22;color:${c};border:1px solid ${c}44`;
+    b.textContent=post.status; mb.appendChild(b);
+  }
+  if(post.type){
+    const b=document.createElement('span');
+    b.className='badge';
+    b.style.cssText=`background:${meta.ac}22;color:${meta.ac};border:1px solid ${meta.ac}44`;
+    b.textContent=post.type; mb.appendChild(b);
+  }
+
+  const md=g('mdate');
+  md.textContent=post.adate?'게시일  '+post.adate:post.sdate?'예정일  '+post.sdate:'';
+  g('mcap').textContent=post.caption;
+  g('mlikes').textContent=post.likes!=null?'좋아요 '+post.likes.toLocaleString()+'개':'';
+  const ml=g('mlink');
+  if(post.figma){ ml.href=post.figma; ml.textContent='피그마에서 열기 →'; ml.style.display='inline-block'; }
+  else ml.style.display='none';
+
+  g('modal').classList.add('open');
+}
+
+function g(id){ return document.getElementById(id); }
+function show(id){ g(id).style.display=''; }
+function hide(id){ g(id).style.display='none'; }
+function showErr(id,msg){ const el=g(id); el.textContent=msg; el.style.display='block'; }
+
+// connect
+g('btnconn').onclick=async()=>{
+  const tok=g('itoken').value.trim();
+  const db=g('idb').value.trim();
+  if(!tok||!db) return;
+  TOKEN=tok; DBID=db;
+  const btn=g('btnconn'); btn.disabled=true; btn.textContent='연결 중...';
+  hide('serr');
+  try{
+    await fetchPosts();
+    hide('setup'); show('app'); g('app').style.display='block';
+  }catch(e){
+    showErr('serr',e.message);
+    btn.disabled=false; btn.textContent='그리드 시작하기';
+  }
+};
+
+g('btnsave').onclick    = saveOrder;
+g('btnrefresh').onclick = fetchPosts;
+g('btnsettings').onclick= ()=>{ hide('app'); show('setup'); };
+g('mclose').onclick     = ()=>g('modal').classList.remove('open');
+g('modal').onclick      = e=>{ if(e.target===g('modal')) g('modal').classList.remove('open'); };
+
+g('btndark').onclick=()=>{
+  dark=!dark;
+  document.body.classList.toggle('dark',dark);
+  g('btndark').textContent=dark?'☀':'☽';
+};
+</script>
+</body>
+</html>
