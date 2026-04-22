@@ -36,6 +36,20 @@
     .header h1 { font-size: 18px; font-weight: 700; }
     .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
 
+    /* Loading Banner */
+    .loading-banner {
+      display: flex; align-items: center; gap: 8px;
+      background: #e8eaf6; border: 1px solid var(--accent);
+      border-radius: var(--radius); padding: 9px 14px;
+      font-size: 13px; color: var(--accent); margin-bottom: 12px;
+    }
+    .spinner {
+      width: 14px; height: 14px; border: 2px solid var(--accent-l);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.7s linear infinite; flex-shrink: 0;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
     /* Settings Panel */
     .panel {
       background: var(--card);
@@ -91,6 +105,7 @@
       font-weight: 600; cursor: pointer; transition: background 0.15s;
     }
     .btn-primary:hover { background: var(--accent-h); }
+    .btn-primary:disabled { background: var(--muted); cursor: not-allowed; }
     .btn-outline {
       background: var(--card); color: var(--text);
       border: 1px solid var(--border); padding: 7px 12px;
@@ -218,6 +233,8 @@
     /* Alerts */
     .alert { padding: 9px 12px; border-radius: 6px; font-size: 13px; margin-bottom: 10px; }
     .alert-err { background: #fff5f5; border: 1px solid #fed7d7; color: #c53030; }
+    .alert-warn { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .alert-ok { background: #f0fff4; border: 1px solid #9ae6b4; color: #276749; }
 
     /* Empty */
     .empty {
@@ -227,6 +244,70 @@
     }
     .empty .icon { font-size: 36px; margin-bottom: 10px; }
     .empty p { font-size: 13px; margin-top: 6px; }
+
+    /* Script URL section */
+    .script-url-section {
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px; margin-bottom: 14px;
+    }
+    .script-url-row {
+      display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap;
+    }
+    .script-url-input {
+      flex: 1; min-width: 200px; padding: 7px 10px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 12px; font-family: monospace; color: var(--text);
+      background: var(--card);
+    }
+    .script-url-input:focus { outline: none; border-color: var(--accent); }
+
+    /* Guide section */
+    .guide-toggle-btn {
+      background: none; border: none; cursor: pointer;
+      font-size: 11px; color: var(--accent); font-weight: 600;
+      padding: 0; text-decoration: underline;
+    }
+    .guide-body {
+      display: none; margin-top: 10px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 6px; padding: 12px;
+    }
+    .guide-body.open { display: block; }
+    .guide-body ol { padding-left: 18px; font-size: 12px; line-height: 1.8; color: var(--text); }
+    .guide-body pre {
+      background: #1e1e2e; color: #cdd6f4; padding: 10px 12px;
+      border-radius: 6px; font-size: 11px; overflow-x: auto;
+      margin: 8px 0; line-height: 1.6;
+    }
+
+    /* Password Modal */
+    .modal-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.45); z-index: 200;
+      align-items: center; justify-content: center;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-box {
+      background: var(--card); border-radius: var(--radius);
+      padding: 24px; width: 320px; max-width: 90vw;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    .modal-box h2 { font-size: 16px; font-weight: 700; margin-bottom: 6px; }
+    .modal-box p { font-size: 12px; color: var(--muted); margin-bottom: 14px; }
+    .modal-input {
+      width: 100%; padding: 9px 12px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 14px; margin-bottom: 6px; color: var(--text);
+    }
+    .modal-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-l); }
+    .modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+    .modal-actions .btn-primary { flex: 1; }
+    .btn-cancel {
+      background: var(--bg); color: var(--muted); border: 1px solid var(--border);
+      padding: 9px 14px; border-radius: 6px; font-size: 13px;
+      font-weight: 600; cursor: pointer;
+    }
+    .btn-cancel:hover { background: var(--border); }
   </style>
 </head>
 <body>
@@ -240,13 +321,71 @@
     </div>
   </div>
 
+  <!-- Loading Banner -->
+  <div class="loading-banner" id="loadingBanner" style="display:none;">
+    <div class="spinner"></div>
+    <span id="loadingMsg">Google Sheets에서 설정을 불러오는 중...</span>
+  </div>
+  <div id="remoteMsgBanner" style="display:none;"></div>
+
   <!-- Settings Panel -->
   <div class="panel">
     <button class="panel-toggle" id="settingsToggle" onclick="toggleSettings()">
-      <span>⚙ 설정</span>
+      <span id="settingsToggleLabel">🔒 설정 (관리자 전용)</span>
       <span class="arrow">▼</span>
     </button>
     <div class="panel-body" id="settingsBody">
+
+      <!-- Apps Script URL -->
+      <div class="script-url-section">
+        <label class="field-label">Google Apps Script URL</label>
+        <div class="script-url-row">
+          <input type="url" class="script-url-input" id="scriptUrlInput"
+            placeholder="https://script.google.com/macros/s/.../exec">
+          <button class="btn-outline" onclick="testScriptUrl()" id="testBtn">연결 테스트</button>
+        </div>
+        <div class="field-hint" style="margin-top:6px;">
+          설정하면 모든 기기에서 동일한 내용이 표시됩니다. 없으면 이 기기에만 저장됩니다.
+          &nbsp;<button class="guide-toggle-btn" onclick="toggleGuide()">설정 방법 보기 ▾</button>
+        </div>
+        <div class="guide-body" id="guideBody">
+          <ol>
+            <li>Google Sheets를 새로 만들고 <strong>빈 시트</strong>로 둡니다.</li>
+            <li>상단 메뉴 → <strong>확장 프로그램 → Apps Script</strong> 클릭</li>
+            <li>기존 코드를 지우고 아래 코드를 붙여넣기 후 비밀번호를 수정합니다.</li>
+            <li><strong>저장(Ctrl+S)</strong> → <strong>배포 → 새 배포</strong></li>
+            <li>유형: <em>웹 앱</em>, 실행 계정: <em>나</em>, 액세스 권한: <em>모든 사용자</em> → <strong>배포</strong></li>
+            <li>생성된 URL을 복사해서 위 입력란에 붙여넣습니다.</li>
+          </ol>
+          <pre id="guideCode">const PASSWORD = 'your_password'; // ← 원하는 비밀번호로 변경
+
+function doGet() {
+  const val = SpreadsheetApp.getActiveSpreadsheet()
+    .getActiveSheet().getRange('A1').getValue();
+  const out = ContentService.createTextOutput(val || '{}');
+  out.setMimeType(ContentService.MimeType.JSON);
+  return out;
+}
+
+function doPost(e) {
+  const data = JSON.parse(e.postData.contents);
+  if (data.password !== PASSWORD) {
+    return ContentService.createTextOutput(
+      JSON.stringify({error:'인증 실패'})
+    ).setMimeType(ContentService.MimeType.JSON);
+  }
+  SpreadsheetApp.getActiveSpreadsheet()
+    .getActiveSheet().getRange('A1')
+    .setValue(JSON.stringify(data.config));
+  return ContentService.createTextOutput(
+    JSON.stringify({ok: true})
+  ).setMimeType(ContentService.MimeType.JSON);
+}</pre>
+          <button class="btn-outline" onclick="copyGuideCode()" style="margin-top:6px; font-size:11px;">📋 코드 복사</button>
+        </div>
+      </div>
+
+      <!-- Date + Members + Programs -->
       <div style="margin-bottom:14px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
         <div>
           <label class="field-label">1주차 시작일</label>
@@ -269,7 +408,7 @@
         </div>
       </div>
       <div class="alert alert-err" id="settingsErr" style="display:none;"></div>
-      <button class="btn-primary" onclick="applySettings()">✓ 적용하기</button>
+      <button class="btn-primary" id="applyBtn" onclick="applySettings()">✓ 저장 및 공유</button>
     </div>
   </div>
 
@@ -296,7 +435,30 @@
   <div id="output"></div>
 
 </div>
+
+<!-- Password Modal -->
+<div class="modal-overlay" id="pwModal">
+  <div class="modal-box">
+    <h2>🔒 관리자 인증</h2>
+    <p>설정을 변경하려면 관리자 비밀번호를 입력하세요.<br>비밀번호는 Apps Script 코드에서 설정합니다.</p>
+    <input type="password" class="modal-input" id="pwInput"
+      placeholder="비밀번호 입력"
+      onkeydown="if(event.key==='Enter') submitPassword()">
+    <div class="alert alert-err" id="pwError" style="display:none; margin-top:6px;"></div>
+    <div class="modal-actions">
+      <button class="btn-cancel" onclick="closePasswordModal()">취소</button>
+      <button class="btn-primary" onclick="submitPassword()">확인</button>
+    </div>
+  </div>
+</div>
+
 <script>
+// ─────────────────────────────────────────────
+//  ADMIN STATE (메모리 전용, 저장 안 함)
+// ─────────────────────────────────────────────
+let isAdmin = false;
+let adminPassword = '';
+
 // ─────────────────────────────────────────────
 //  STATE
 // ─────────────────────────────────────────────
@@ -314,8 +476,13 @@ const TEAM_LETTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 // ─────────────────────────────────────────────
 //  INIT
 // ─────────────────────────────────────────────
-function init() {
+async function init() {
   loadStorage();
+  const scriptUrl = loadScriptUrl();
+  if (scriptUrl) {
+    document.getElementById('scriptUrlInput').value = scriptUrl;
+    await fetchRemoteConfig(scriptUrl);
+  }
   syncMembersTextarea();
   syncProgGroupsUI();
   updateWeekBadge();
@@ -351,6 +518,71 @@ function loadStorage() {
     Array.from({ length: 12 }, (_, i) => 'A-' + (i + 1))
   ];
   S.startDate = '';
+}
+
+function saveScriptUrl(url) {
+  try { localStorage.setItem('prs_scriptUrl', url); } catch (_) {}
+}
+function loadScriptUrl() {
+  try { return localStorage.getItem('prs_scriptUrl') || ''; } catch (_) { return ''; }
+}
+
+// ─────────────────────────────────────────────
+//  REMOTE CONFIG (Google Apps Script)
+// ─────────────────────────────────────────────
+async function fetchRemoteConfig(url) {
+  if (!url) return false;
+  showLoading(true, 'Google Sheets에서 설정을 불러오는 중...');
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    if (data && data.members && data.members.length > 0) {
+      S.members = data.members;
+      S.programGroups = data.programGroups || S.programGroups;
+      S.startDate = data.startDate !== undefined ? data.startDate : S.startDate;
+      showLoading(false);
+      showRemoteMsg('ok', '✓ Google Sheets에서 설정을 불러왔습니다.');
+      return true;
+    }
+    showLoading(false);
+    return false;
+  } catch (e) {
+    showLoading(false);
+    showRemoteMsg('warn', '⚠ 원격 설정을 불러오지 못했습니다. 저장된 설정을 사용합니다. (' + e.message + ')');
+    return false;
+  }
+}
+
+function showLoading(on, msg) {
+  const el = document.getElementById('loadingBanner');
+  el.style.display = on ? 'flex' : 'none';
+  if (msg) document.getElementById('loadingMsg').textContent = msg;
+}
+
+function showRemoteMsg(type, msg) {
+  const el = document.getElementById('remoteMsgBanner');
+  el.className = 'alert alert-' + (type === 'ok' ? 'ok' : type === 'warn' ? 'warn' : 'err');
+  el.textContent = msg;
+  el.style.display = 'block';
+  setTimeout(() => { el.style.display = 'none'; }, 4000);
+}
+
+async function testScriptUrl() {
+  const url = document.getElementById('scriptUrlInput').value.trim();
+  if (!url) { showRemoteMsg('err', 'URL을 먼저 입력해주세요.'); return; }
+  const btn = document.getElementById('testBtn');
+  btn.disabled = true; btn.textContent = '테스트 중...';
+  try {
+    // Apps Script는 file:// origin을 막으므로 no-cors로 도달 여부만 확인
+    const res = await fetch(url, { mode: 'no-cors' });
+    // no-cors는 응답 본문을 읽을 수 없지만 네트워크 도달 자체는 확인 가능
+    showRemoteMsg('ok', '✓ URL 도달 확인! 저장 테스트를 진행하거나 Notion 임베드에서 확인하세요.');
+  } catch (e) {
+    showRemoteMsg('err', '✗ 연결 실패: URL이 올바른지, 배포 시 액세스 권한이 "모든 사용자"인지 확인하세요. (' + e.message + ')');
+  } finally {
+    btn.disabled = false; btn.textContent = '연결 테스트';
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -428,8 +660,55 @@ function weekLabel(week) {
 //  SETTINGS UI
 // ─────────────────────────────────────────────
 function toggleSettings() {
-  document.getElementById('settingsBody').classList.toggle('open');
-  document.getElementById('settingsToggle').classList.toggle('open');
+  if (isAdmin) {
+    // 이미 인증됨 — 패널 토글
+    document.getElementById('settingsBody').classList.toggle('open');
+    document.getElementById('settingsToggle').classList.toggle('open');
+  } else {
+    openPasswordModal();
+  }
+}
+
+function toggleGuide() {
+  document.getElementById('guideBody').classList.toggle('open');
+}
+
+function copyGuideCode() {
+  const code = document.getElementById('guideCode').textContent;
+  navigator.clipboard.writeText(code).then(() => {
+    showRemoteMsg('ok', '✓ 코드가 클립보드에 복사되었습니다.');
+  }).catch(() => {
+    showRemoteMsg('warn', '복사에 실패했습니다. 코드를 직접 선택해서 복사하세요.');
+  });
+}
+
+// ─────────────────────────────────────────────
+//  PASSWORD MODAL
+// ─────────────────────────────────────────────
+function openPasswordModal() {
+  document.getElementById('pwModal').classList.add('open');
+  document.getElementById('pwInput').value = '';
+  document.getElementById('pwError').style.display = 'none';
+  setTimeout(() => document.getElementById('pwInput').focus(), 80);
+}
+
+function closePasswordModal() {
+  document.getElementById('pwModal').classList.remove('open');
+}
+
+function submitPassword() {
+  const pw = document.getElementById('pwInput').value;
+  if (!pw) {
+    document.getElementById('pwError').textContent = '비밀번호를 입력해주세요.';
+    document.getElementById('pwError').style.display = 'block';
+    return;
+  }
+  adminPassword = pw;
+  isAdmin = true;
+  closePasswordModal();
+  document.getElementById('settingsToggleLabel').textContent = '⚙ 설정 (관리자 모드)';
+  document.getElementById('settingsBody').classList.add('open');
+  document.getElementById('settingsToggle').classList.add('open');
 }
 
 function syncMembersTextarea() {
@@ -438,11 +717,15 @@ function syncMembersTextarea() {
   document.getElementById('memberHint').textContent =
     S.members.length + '명 → ' + t + '팀 (팀당 최대 12명)';
   if (S.startDate) document.getElementById('startDateInput').value = S.startDate;
+  const urlInput = document.getElementById('scriptUrlInput');
+  if (urlInput) {
+    const saved = loadScriptUrl();
+    if (saved) urlInput.value = saved;
+  }
 }
 
 function ensureProgGroupInputs(teamCount) {
   const wrap = document.getElementById('progGroupsWrap');
-  const existing = wrap.querySelectorAll('.pg-block');
 
   // Add missing
   while (wrap.querySelectorAll('.pg-block').length < teamCount) {
@@ -473,8 +756,9 @@ function syncProgGroupsUI() {
   ensureProgGroupInputs(teams.length);
 }
 
-function applySettings() {
+async function applySettings() {
   const err = document.getElementById('settingsErr');
+  const btn = document.getElementById('applyBtn');
   const members = parseLines(document.getElementById('membersInput').value);
 
   if (members.length === 0) {
@@ -500,10 +784,59 @@ function applySettings() {
     }
   }
 
+  const scriptUrl = document.getElementById('scriptUrlInput').value.trim();
+
+  // Save scriptUrl to localStorage (device-specific, not in shared config)
+  saveScriptUrl(scriptUrl);
+
   S.members = members;
   S.programGroups = programGroups;
   S.selectedMember = '';
   S.startDate = document.getElementById('startDateInput').value || '';
+
+  if (scriptUrl) {
+    // Remote save
+    btn.disabled = true;
+    btn.textContent = '저장 중...';
+    try {
+      const config = {
+        members: S.members,
+        programGroups: S.programGroups,
+        startDate: S.startDate
+      };
+      const res = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+        body: JSON.stringify({ password: adminPassword, config })
+      });
+      const data = await res.json();
+      if (data.error) {
+        err.textContent = data.error === '인증 실패'
+          ? '비밀번호가 틀렸습니다. 잠금 버튼을 다시 클릭해서 올바른 비밀번호를 입력하세요.'
+          : '저장 오류: ' + data.error;
+        err.style.display = 'block';
+        isAdmin = false;
+        adminPassword = '';
+        document.getElementById('settingsToggleLabel').textContent = '🔒 설정 (관리자 전용)';
+        btn.disabled = false;
+        btn.textContent = '✓ 저장 및 공유';
+        return;
+      }
+      showRemoteMsg('ok', '✓ Google Sheets에 저장되었습니다. 모든 기기에서 반영됩니다.');
+    } catch (e) {
+      err.textContent = '저장에 실패했습니다: ' + e.message;
+      err.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = '✓ 저장 및 공유';
+      return;
+    }
+    btn.disabled = false;
+    btn.textContent = '✓ 저장 및 공유';
+  } else {
+    // Local only
+    btn.textContent = '✓ 적용하기';
+  }
+
   saveStorage();
   syncProgGroupsUI();
   render();
