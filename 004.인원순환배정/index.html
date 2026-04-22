@@ -359,27 +359,27 @@
           </ol>
           <pre id="guideCode">const PASSWORD = 'your_password'; // ← 원하는 비밀번호로 변경
 
-function doGet() {
-  const val = SpreadsheetApp.getActiveSpreadsheet()
-    .getActiveSheet().getRange('A1').getValue();
-  const out = ContentService.createTextOutput(val || '{}');
-  out.setMimeType(ContentService.MimeType.JSON);
-  return out;
-}
+function doGet(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet()
+    .getActiveSheet();
 
-function doPost(e) {
-  const data = JSON.parse(e.postData.contents);
-  if (data.password !== PASSWORD) {
+  // 저장 요청: ?action=save&pw=...&data=...
+  if (e.parameter.action === 'save') {
+    if (e.parameter.pw !== PASSWORD) {
+      return ContentService.createTextOutput(
+        JSON.stringify({error:'인증 실패'})
+      ).setMimeType(ContentService.MimeType.JSON);
+    }
+    sheet.getRange('A1').setValue(e.parameter.data);
     return ContentService.createTextOutput(
-      JSON.stringify({error:'인증 실패'})
+      JSON.stringify({ok: true})
     ).setMimeType(ContentService.MimeType.JSON);
   }
-  SpreadsheetApp.getActiveSpreadsheet()
-    .getActiveSheet().getRange('A1')
-    .setValue(JSON.stringify(data.config));
-  return ContentService.createTextOutput(
-    JSON.stringify({ok: true})
-  ).setMimeType(ContentService.MimeType.JSON);
+
+  // 불러오기 요청
+  const val = sheet.getRange('A1').getValue();
+  return ContentService.createTextOutput(val || '{}')
+    .setMimeType(ContentService.MimeType.JSON);
 }</pre>
           <button class="btn-outline" onclick="copyGuideCode()" style="margin-top:6px; font-size:11px;">📋 코드 복사</button>
         </div>
@@ -804,11 +804,13 @@ async function applySettings() {
         programGroups: S.programGroups,
         startDate: S.startDate
       };
-      const res = await fetch(scriptUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-        body: JSON.stringify({ password: adminPassword, config })
+      // POST는 CORS preflight 문제가 있으므로 GET + URL 파라미터로 저장
+      const params = new URLSearchParams({
+        action: 'save',
+        pw: adminPassword,
+        data: JSON.stringify(config)
       });
+      const res = await fetch(scriptUrl + '?' + params.toString());
       const data = await res.json();
       if (data.error) {
         err.textContent = data.error === '인증 실패'
